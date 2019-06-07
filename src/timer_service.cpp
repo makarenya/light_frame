@@ -1,23 +1,19 @@
 #include "timer_service.h"
 
-bool TTimerService::addTimer(ITimerCallback* callback, uint32_t timer, int delay)
+bool TTimerService::addTimer(ITimer* timer)
 {
     if (TimerHead >= sizeof(Timers) - 1) return false;
-    Callbacks[TimerHead] = callback;
     Timers[TimerHead] = timer;
-    Marks[TimerHead] = Ticks + delay;
     TimerHead++;
     return true;
 }
 
-void TTimerService::removeTimer(ITimerCallback* callback, uint32_t timer)
+void TTimerService::removeTimer(ITimer* timer)
 {
     int currentHead = 0;
     for (int i = 0; i<TimerHead; ++i) {
-        if (callback != Callbacks[i] || timer != Timers[i]) {
-            Callbacks[currentHead] = Callbacks[i];
+        if (timer != Timers[i]) {
             Timers[currentHead] = Timers[i];
-            Marks[currentHead] = Marks[i];
             currentHead++;
         }
     }
@@ -27,17 +23,37 @@ void TTimerService::removeTimer(ITimerCallback* callback, uint32_t timer)
 void TTimerService::poll()
 {
     Ticks++;
-    int currentHead = 0;
     for (int i = 0; i<TimerHead; ++i) {
-        if (Marks[i]==Ticks) {
-            Callbacks[i]->onTimer(Timers[i]);
-        } else {
-            Callbacks[currentHead] = Callbacks[i];
-            Timers[currentHead] = Timers[i];
-            Marks[currentHead] = Marks[i];
-            currentHead++;
-        }
+        Timers[i]->poll(Ticks);
     }
-    TimerHead = currentHead;
 }
 
+TTimeout::TTimeout(TTimerService& service, int delay)
+        : Service(service)
+{
+    Service.addTimer(this);
+    if (delay > 0) set(delay);
+}
+
+TTimeout::~TTimeout()
+{
+    Service.removeTimer(this);
+}
+
+void TTimeout::poll(uint32_t ticks)
+{
+    if (State == TTimerState::Set && Mark==ticks) {
+        State = TTimerState::Expired;
+    }
+}
+
+void TTimeout::set(int delay)
+{
+    Mark = Service.ticks()+delay;
+    State = TTimerState::Set;
+}
+
+void TTimeout::unset()
+{
+    State = TTimerState::Unset;
+}

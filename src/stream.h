@@ -2,11 +2,12 @@
 
 #include <platform/communication_control.h>
 #include "timer_service.h"
-class TStream : public IReceiveBufferCallback, public ITransmitBufferCallback, ITimerCallback {
+class TStream : public IReceiveBufferCallback, public ITransmitBufferCallback {
 public:
     explicit TStream(TCommunicationControl& communication, TTimerService& timer)
         : Communication(communication)
-        , Timer(timer)
+        , ReceiveTimeout(timer)
+        , TransmitTimeout(timer)
     {}
     void enable();
     int available();
@@ -21,7 +22,6 @@ public:
 
     void bufferTransmitted(int size) override;
     void bufferReceived(int size) override;
-    void onTimer(uint32_t timer) override;
 
 private:
     void beginTransmit();
@@ -34,9 +34,8 @@ private:
     volatile int TransmitWrite{};
     volatile bool TransmitStopped{true};
     volatile bool ReceiveStopped{true};
-    volatile bool ReceiveTimeout{false};
-    volatile bool TransmitTimeout{false};
 
     TCommunicationControl& Communication;
-    TTimerService& Timer;
+    TTimeout ReceiveTimeout;
+    TTimeout TransmitTimeout;
 };

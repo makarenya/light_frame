@@ -39,14 +39,13 @@ int TStream::asyncRead(uint8_t* buffer, int size)
 
 bool TStream::read(uint8_t* buffer, int size)
 {
-    ReceiveTimeout = false;
-    Timer.addTimer(this, 1, 100);
+    ReceiveTimeout.set(100);
     int ready = 0;
-    while(ready < size || ReceiveTimeout) {
+    while(ready < size || ReceiveTimeout.expired()) {
         ready += asyncRead(static_cast<uint8_t*>(buffer) + ready, size - ready);
     }
-    Timer.removeTimer(this, 1);
-    return !ReceiveTimeout;
+    ReceiveTimeout.unset();
+    return !ReceiveTimeout.expired();
 }
 
 int TStream::asyncReadUntil(uint8_t character, uint8_t* buffer, int size)
@@ -67,14 +66,13 @@ int TStream::asyncReadUntil(uint8_t character, uint8_t* buffer, int size)
 
 int TStream::readUntil(uint8_t character, uint8_t* buffer, int size)
 {
-    ReceiveTimeout = false;
-    Timer.addTimer(this, 1, 100);
+    ReceiveTimeout.set(100);
     int ready = 0;
-    while(ready < size || ReceiveTimeout) {
+    while(ready < size || ReceiveTimeout.expired()) {
         ready += asyncReadUntil(character, static_cast<uint8_t*>(buffer) + ready, size - ready);
         if (buffer[ready - 1] == character) break;
     }
-    Timer.removeTimer(this, 1);
+    ReceiveTimeout.unset();
     return ready;
 }
 
@@ -99,14 +97,12 @@ int TStream::asyncWrite(uint8_t* buffer, int size)
 
 int TStream::write(uint8_t* buffer, int size)
 {
-    TransmitTimeout = false;
-    Timer.addTimer(this, 2, 100);
+    TransmitTimeout.set(100);
     int ready = 0;
-    while(ready < size || TransmitTimeout) {
+    while(ready < size || TransmitTimeout.expired()) {
         ready += asyncWrite(static_cast<uint8_t*>(buffer) + ready, size - ready);
     }
-    Timer.removeTimer(this, 2);
-    return 0;
+    return ready;
 }
 
 void TStream::bufferTransmitted(int size)
@@ -129,15 +125,6 @@ void TStream::bufferReceived(int size)
     }
 
     beginReceive();
-}
-
-void TStream::onTimer(uint32_t timer)
-{
-    if (timer == 1) {
-        ReceiveTimeout = true;
-    } else {
-        TransmitTimeout = true;
-    }
 }
 
 void TStream::beginTransmit()

@@ -1,3 +1,5 @@
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "cert-err58-cpp"
 #include <platform/communication_control.h>
 #include <cstdio>
 #include <timer_service.h>
@@ -23,7 +25,7 @@ enum class TPressedButton {
     Left
 };
 
-class TModeControl : public IModeControl, public ITransmitBufferCallback, public ICommandsCallback, public ITimerCallback {
+class TModeControl : public IModeControl, public ITransmitBufferCallback, public ICommandsCallback {
 public:
     void init(TMode mode) override;
     void switchMode(TMode mode) override;
@@ -32,7 +34,6 @@ public:
     void onTimer() override;
     void tick() override;
     void poll() override;
-    void onTimer(uint32_t timer) override ;
 
     void onModeSelect(uint32_t mode) override;
     void onButtonsLight(uint32_t brightness) override;
@@ -64,6 +65,7 @@ private:
     int LastBrightness{0};
     TLightSelector LightSelector{};
     int PrintFormat{0};
+    TTimeout UpdateBrightnessTimeout{Timers, 100};
 };
 
 
@@ -87,7 +89,6 @@ void TModeControl::init(TMode mode)
     TButtonsControl::enable();
     Communication.enable();
     Receiver.init(this);
-    Timers.addTimer(this, 1, 500);
     switchMode(mode);
 }
 
@@ -233,6 +234,19 @@ void TModeControl::poll()
     TButtonsControl::setPowerLed(pwrLight);
     TButtonsControl::setRightLed(rightLight);
     TButtonsControl::setLeftLed(leftLight);
+
+    if (UpdateBrightnessTimeout.expired()) {
+        UpdateBrightnessTimeout.set(100);
+
+        LightSelector.update(LastBrightness);
+        Selected->setBrightness(LightSelector.stripBrightness());
+        if (PrintFormat == 1) {
+            TStringBuilder builder(StringBuffer, sizeof(StringBuffer));
+            builder.print(LastBrightness);
+            builder.print(crlf);
+            communication().transmit(StringBuffer, builder.length(), this);
+        }
+    }
 }
 
 void TModeControl::onModeSelect(uint32_t mode)
@@ -268,21 +282,5 @@ void TModeControl::onPrintFormat(uint32_t format)
 void TModeControl::bufferTransmitted(int) {
     if (CalibrationState == TCalibrationState::DataReady) {
         CalibrationState = TCalibrationState::Transmitted;
-    }
-}
-
-
-void TModeControl::onTimer(uint32_t timer)
-{
-    if (timer == 1) {
-        Timers.addTimer(this, 1, 100);
-        LightSelector.update(LastBrightness);
-        Selected->setBrightness(LightSelector.stripBrightness());
-        if (PrintFormat == 1) {
-            TStringBuilder builder(StringBuffer, sizeof(StringBuffer));
-            builder.print(LastBrightness);
-            builder.print(crlf);
-            communication().transmit(StringBuffer, builder.length(), this);
-        }
     }
 }
