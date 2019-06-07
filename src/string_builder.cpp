@@ -2,6 +2,7 @@
 // Created by Alexey Makarenya on 2019-06-04.
 //
 
+#include <cstdlib>
 #include "string_builder.h"
 
 TStringBuilder::TStringBuilder(char* buffer, int len)
@@ -22,6 +23,12 @@ void TStringBuilder::print(int value)
 {
     int tmp = value;
     int cnt = 1;
+    char minus = '-';
+    if (value < 0)
+    {
+        value = -value;
+        print(&minus, 1);
+    }
     while (tmp>=10) {
         tmp /= 10;
         cnt++;

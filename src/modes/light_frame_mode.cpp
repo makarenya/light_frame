@@ -9,20 +9,14 @@ constexpr int TLightFrameMode::PulseTime[];
 constexpr int TLightFrameMode::MeasureTime[];
 
 TLightFrameMode::TLightFrameMode(double cycleTime)
-    : Sound()
-    , Frequency(100)
-    , CycleTime(cycleTime)
-    , Power(.5)
-    , Brightness(.2)
-    , DynamicChanged(true)
-{
-    CycleTime = cycleTime;
-}
+    : CycleTime(cycleTime)
+{}
 
 void TLightFrameMode::switchOn()
 {
     TLedControl::enableOutput();
     TAdcControl::enableFrame();
+    TAdcControl::measureLight();
     TAdcControl::set(Sound, SoundLength);
     changeDynamic();
     configureLed();
@@ -45,13 +39,23 @@ void TLightFrameMode::onDma()
 
 int TLightFrameMode::calculateBrightness()
 {
-    int amplitude = TAdcControl::get(1);
-    int brightness = TAdcControl::get(2);
-    int ledPeriod = static_cast<int>(BaseFrequency/(Frequency-1.0/CycleTime));
-    double error = (1 - 1.0 * (amplitude - MeasureTarget) / TargetAmplitude);
-
-    if (TLedControl::getPeriod() < ledPeriod / 2) return -1;
-    return brightness;
+    if (MeasureLight) {
+        int brightness = TAdcControl::get(1);
+        TAdcControl::measureMagnet();
+        MeasureLight = false;
+        return brightness;
+    } else {
+        /*
+        int amplitude = TAdcControl::get(1);
+        double error = (1 - (MeasureTarget - 1.0 * amplitude) / TargetAmplitude);
+        double result = 100.0 - error * 20;
+        if (result > 200) result = 200;
+        if (result < 80) result = 80;
+        */
+        TAdcControl::measureLight();
+        MeasureLight = true;
+        return -1;
+    }
 }
 
 void TLightFrameMode::setDynamic(double frequency, double power)

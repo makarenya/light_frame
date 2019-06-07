@@ -65,6 +65,12 @@ bool TCommunicationControl::stopReceive()
     return true;
 }
 
+int TCommunicationControl::received()
+{
+    if (ReceiveBufferCallback == nullptr) return 0;
+    return ReceiveSize - dma_get_number_of_data(UartDma, RxDmaChannel);
+}
+
 bool TCommunicationControl::transmit(const void* buffer, uint16_t length, ITransmitBufferCallback* callback)
 {
     if (TransmitBufferCallback || TransmitByteCallback) return false;

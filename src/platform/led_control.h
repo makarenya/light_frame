@@ -11,5 +11,4 @@ public:
     static void stop();
     static void disable();
     static void set(int period, int brightness);
-    static int getPeriod();
 };

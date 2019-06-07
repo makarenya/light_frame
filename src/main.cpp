@@ -1,8 +1,8 @@
-#include <platform/platform_control.h>
-#include <platform/led_control.h>
-#include "platform/hardware.h"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
 #include "modes/mode_control.h"
-#include "platform/buttons_control.h"
+
+uint8_t buffer[1024];
 
 int main()
 {

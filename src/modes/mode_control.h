@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <platform/communication_control.h>
+#include <timer_service.h>
 
 enum class TMode {
     Static,
@@ -34,6 +35,7 @@ public:
 
     virtual TCommunicationControl& communication() = 0;
     virtual TCommunicationControl& esp() = 0;
+    virtual TTimerService& timers() = 0;
 };
 
 IModeControl& mode_control();

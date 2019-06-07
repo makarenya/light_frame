@@ -6,6 +6,8 @@ public:
     static void enable();
     static void disable();
     static void enableFrame();
+    static void measureLight();
+    static void measureMagnet();
     static void disableFrame();
     static void enableCalibration();
     static void disableCalibration();

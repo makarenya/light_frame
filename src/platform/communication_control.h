@@ -29,6 +29,7 @@ public:
     bool receive(void* buffer, uint16_t length, IReceiveBufferCallback* callback);
     bool receive(IReceiveByteCallback* callback);
     bool stopReceive();
+    int received();
     bool transmit(const void* buffer, uint16_t length, ITransmitBufferCallback* callback);
     bool transmit(uint8_t byte, ITransmitByteCallback* callback);
 
@@ -47,8 +48,6 @@ private:
     void fireBufferTransmitted(int size);
     void fireByteTransmitted();
 
-
-
     const int Baud;
     const uint8_t DmaRxIrq;
     const uint8_t DmaTxIrq;
@@ -66,6 +65,6 @@ private:
     IReceiveByteCallback* ReceiveByteCallback{};
     ITransmitBufferCallback* TransmitBufferCallback{};
     ITransmitByteCallback* TransmitByteCallback{};
-    uint16_t ReceiveSize;
+    uint16_t ReceiveSize{};
     uint16_t TransmitSize{};
 };

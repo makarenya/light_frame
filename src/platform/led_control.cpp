@@ -64,10 +64,5 @@ void TLedControl::set(int period, int brightness)
 {
     timer_set_period(LedTimer, period);
     timer_set_oc_value(LedTimer, TIM_OC1, brightness);
-    timer_set_oc_value(LedTimer, TIM_OC4, period / 2);
-}
-
-int TLedControl::getPeriod()
-{
-    return TIM_ARR(LedTimer);
+    timer_set_oc_value(LedTimer, TIM_OC4, period * 4 / 5);
 }

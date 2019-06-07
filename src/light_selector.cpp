@@ -3,10 +3,7 @@
 
 constexpr int TLightSelector::Intervals[];
 constexpr double TLightSelector::Strip[];
-constexpr int TLightSelector::Sleep[];
-constexpr int TLightSelector::Blink[];
-constexpr int TLightSelector::Curr[];
-constexpr int TLightSelector::Other[];
+constexpr double TLightSelector::Buttons[];
 
 bool TLightSelector::update(int value)
 {
@@ -22,11 +19,13 @@ bool TLightSelector::update(int value)
             }
         }
         CurrentMode = best;
-    } else if (value > Intervals[CurrentMode + 2] && CurrentMode < ModesCount - 1) {
+    } else if (value > Intervals[CurrentMode * 2 + 1] && CurrentMode < ModesCount - 1) {
         suggestedMode = CurrentMode + 1;
 
-    } else if (value < Intervals[CurrentMode] && CurrentMode > 0) {
+    } else if (value < Intervals[CurrentMode * 2] && CurrentMode > 0) {
         suggestedMode = CurrentMode - 1;
+    } else {
+        Approves = 0;
     }
     if (NewMode == suggestedMode && suggestedMode >= 0) {
         if (Approves >= 2) {
@@ -63,44 +62,35 @@ double TLightSelector::stripBrightness()
     return Strip[CurrentMode];
 }
 
-int TLightSelector::sleepBrightness()
+double TLightSelector::sleepBrightness()
 {
-    if (OveridedButtons > 0) {
-        return OveridedButtons / 2;
-    } else if (CurrentMode < 0) {
-        return Sleep[1];
-    }
-    return Sleep[CurrentMode];
+    return 0.03;
+    //return buttonsBase() / 3;
 }
 
-int TLightSelector::currentBrightness()
+double TLightSelector::currentBrightness()
+{
+    return buttonsBase();
+}
+
+double TLightSelector::otherBrightness()
+{
+
+    return buttonsBase() / 3;
+}
+
+double TLightSelector::blinkBrightness()
+{
+    return buttonsBase() * 2;
+}
+
+double TLightSelector::buttonsBase()
 {
     if (OveridedButtons > 0) {
         return OveridedButtons;
     } else if (CurrentMode < 0) {
-        return Curr[1];
+        return Buttons[1];
+    } else {
+        return Buttons[CurrentMode];
     }
-    return Curr[CurrentMode];
 }
-
-int TLightSelector::otherBrightness()
-{
-    if (OveridedButtons > 0) {
-        return OveridedButtons * 3 / 4;
-    } else if (CurrentMode < 0) {
-        return Other[1];
-    }
-    return Other[CurrentMode];
-}
-
-int TLightSelector::blinkBrightness()
-{
-    if (OveridedButtons > 0) {
-        return OveridedButtons * 4 / 3;
-    } else if (CurrentMode < 0) {
-        return Blink[1];
-    }
-    return Blink[CurrentMode];
-}
-
-

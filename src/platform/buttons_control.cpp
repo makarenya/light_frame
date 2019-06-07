@@ -27,19 +27,19 @@ void TButtonsControl::enable()
     timer_enable_counter(ControlTimer);
 }
 
-void TButtonsControl::setPowerLed(int brightness)
+void TButtonsControl::setPowerLed(double brightness)
 {
-    timer_set_oc_value(ControlTimer, PwrBtnLedChannel, brightness);
+    timer_set_oc_value(ControlTimer, PwrBtnLedChannel, static_cast<int>(brightness * 220));
 }
 
-void TButtonsControl::setRightLed(int brightness)
+void TButtonsControl::setRightLed(double brightness)
 {
-    timer_set_oc_value(ControlTimer, RightBtnLedChannel, brightness);
+    timer_set_oc_value(ControlTimer, RightBtnLedChannel, static_cast<int>(brightness * 400));
 }
 
-void TButtonsControl::setLeftLed(int brightness)
+void TButtonsControl::setLeftLed(double brightness)
 {
-    timer_set_oc_value(ControlTimer, LeftBtnLedChannel, brightness);
+    timer_set_oc_value(ControlTimer, LeftBtnLedChannel, static_cast<int>(brightness * 220));
 }
 
 void TButtonsControl::startEvents()

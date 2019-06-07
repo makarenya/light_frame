@@ -7,22 +7,21 @@ public:
     void overrideButtons(int brightness);
 
     double stripBrightness();
-    int sleepBrightness();
-    int currentBrightness();
-    int otherBrightness();
-    int blinkBrightness();
+    double sleepBrightness();
+    double currentBrightness();
+    double otherBrightness();
+    double blinkBrightness();
 
 private:
-    constexpr static int Intervals[] = { 0, 100, 200, 300, 400 };
-    constexpr static double Strip[] = { .001, .1, .7 };
-    constexpr static int Sleep[] = { 10, 40, 200 };
-    constexpr static int Blink[] = { 100, 300, 400 };
-    constexpr static int Curr[] = { 50, 150, 200 };
-    constexpr static int Other[] = { 30, 100, 150 };
+    double buttonsBase();
+    // 1350 // 2300 // 3100
+    constexpr static int Intervals[] = { 0, 2000, 2400, 3400, 3400, 4000 };
+    constexpr static double Strip[] = { .05, .2, .7 };
+    constexpr static double Buttons[] = { 0.025, 0.15, 0.75 };
     const static int ModesCount = sizeof(Strip)/sizeof(*Strip);
 
-    double OveridedStrip{.5};
-    int OveridedButtons{10};
+    double OveridedStrip{0};
+    int OveridedButtons{0};
     int CurrentMode{-1};
     int NewMode{-1};
     int Approves{0};

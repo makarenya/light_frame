@@ -32,5 +32,5 @@ void TSimpleFrameMode::setBrightness(double brightness)
 
 void TSimpleFrameMode::configureLed()
 {
-    TLedControl::set(1000, static_cast<int>(1000 * Brightness / 3));
+    TLedControl::set(10000, static_cast<int>(10000 * Brightness / 3));
 }

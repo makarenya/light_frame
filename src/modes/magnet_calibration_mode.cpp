@@ -39,7 +39,7 @@ void TMagnetCalibrationMode::onDma()
         TargetValue = v/9;
         MeasureDelays[Pulses-1] = Samples;
     } else if (PulseWidth < Pulses){
-        for (int i = 0; i<Samples; i++) {
+        for (int i = 0; i<Samples+5; i++) {
             if (i<9) {
                 v += RawData[i];
             } else if (v<TargetValue*9) {
@@ -65,9 +65,10 @@ void TMagnetCalibrationMode::onTimer()
     }
 }
 
-
-static const char waitStr[] = "static const int magnetAdcWait[] = { ";
-static const char timesStr[] = "static const int magnetPulseTimes[] = { ";
+static const char targetStr[] = "static const int MeasureTarget = ";
+static const char endTarget[] = ";\n";
+static const char waitStr[] = "static constexpr int MeasureTime[] = { ";
+static const char timesStr[] = "static constexpr int PulseTime[] = { ";
 static const char sepStr[] = ", ";
 static const char endStr[] = " };\n";
 
@@ -79,36 +80,26 @@ inline int round(double num)
 int TMagnetCalibrationMode::calculate(char* buffer, int len)
 {
     // suppress hard fails
-    double tmp[Pulses+5];
-    int last = 0;
-    for (int i = 0; i<Pulses; ++i) {
-        if (MeasureDelays[i]<last) {
-            tmp[i+5] = last;
-        } else {
-            tmp[i+5] = last = MeasureDelays[i];
-        }
-    }
-
+    double tmp[Pulses];
     // smooth curve
     double acc = 0;
     for (int i = 0; i<Pulses; ++i) {
         if (i<9) {
-            acc += tmp[i+5];
+            acc += MeasureDelays[i];
             if (i%2==0) {
                 tmp[i/2] = acc/(i+1.0);
             }
         } else {
-            double new_acc = acc+tmp[i+5]-tmp[i-4];
+            acc = acc+MeasureDelays[i]-MeasureDelays[i-9];
             tmp[i-4] = acc/9.0;
-            acc = new_acc;
         }
     }
 
     // linearize curve
     int base = 0;
-    int values[50];
-    int times[50];
-    int found = 0;
+    int values[50] = {0};
+    int times[50] = {0};
+    int found = 1;
     while (base+2<Pulses) {
         double baseValue = tmp[base];
         bool changed = false;
@@ -124,8 +115,8 @@ int TMagnetCalibrationMode::calculate(char* buffer, int len)
             }
             if (!passed) {
                 changed = true;
-                values[found] = round(tmp[base] * 10);
-                times[found] = base * 20;
+                values[found] = round(tmp[base] * 5);
+                times[found] = (base + 1) * 20;
                 found++;
                 base = test-1;
                 break;
@@ -135,11 +126,14 @@ int TMagnetCalibrationMode::calculate(char* buffer, int len)
             break;
         }
     }
-    values[found] = round(tmp[Pulses-1] * 10);
+    values[found] = round(tmp[Pulses-5] * 5);
     times[found] = Pulses * 20;
     found++;
 
     TStringBuilder builder(buffer, len);
+    builder.print(targetStr);
+    builder.print(TargetValue);
+    builder.print(endTarget);
     builder.print(waitStr);
     for (int i = 0; i < found; ++i) {
         if (i != 0) builder.print(sepStr);

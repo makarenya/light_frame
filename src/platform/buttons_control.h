@@ -5,9 +5,9 @@ class TButtonsControl {
 public:
     static void enable();
 
-    static void setPowerLed(int brightness);
-    static void setRightLed(int brightness);
-    static void setLeftLed(int brightness);
+    static void setPowerLed(double brightness);
+    static void setRightLed(double brightness);
+    static void setLeftLed(double brightness);
 
     static void startEvents();
     static void stopEvents();

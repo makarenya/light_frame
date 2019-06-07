@@ -1,5 +1,5 @@
 #pragma once
-#include "stdint.h"
+#include <cstdint>
 
 class ITimerCallback {
 public:
@@ -8,7 +8,8 @@ public:
 
 class TTimerService {
 public:
-    void addTimer(ITimerCallback* callback, uint32_t timer, int delay);
+    bool addTimer(ITimerCallback* callback, uint32_t timer, int delay);
+    void removeTimer(ITimerCallback* callback, uint32_t timer);
     void poll();
     uint32_t ticks() { return Ticks; }
 

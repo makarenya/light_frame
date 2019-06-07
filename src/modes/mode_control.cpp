@@ -42,6 +42,7 @@ public:
 
     TCommunicationControl& communication() override { return Communication; }
     TCommunicationControl& esp() override { return Esp; }
+    TTimerService& timers() override { return Timers; }
 
 private:
     IWorkMode* Selected{nullptr};
@@ -52,8 +53,8 @@ private:
     TCommunicationControl Esp{true, 115200};
     TPressedButton PressedButton{TPressedButton::None};
     TSimpleFrameMode StaticMode{};
-    TLightFrameMode SlowMode{5.0};
-    TLightFrameMode FastMode{1.0};
+    TLightFrameMode SlowMode{2.5};
+    TLightFrameMode FastMode{0.9};
     TMagnetCalibrationMode CalibrationMode;
     TCommandsReceiver Receiver{Communication};
     TSleepMode SleepMode{};
@@ -195,9 +196,9 @@ void TModeControl::poll()
         switchMode(TMode::Sleep);
     }
 
-    int pwrLight = 0;
-    int rightLight = 0;
-    int leftLight = 0;
+    double pwrLight = 0;
+    double rightLight = 0;
+    double leftLight = 0;
 
     if (TButtonsControl::pwr_pressed()) {
         pwrLight = LightSelector.blinkBrightness();
@@ -256,7 +257,7 @@ void TModeControl::onButtonsLight(uint32_t brightness)
 
 void TModeControl::onLedStripLight(uint32_t brightness)
 {
-    LightSelector.overrideStrip(brightness / 100.0);
+    LightSelector.overrideStrip(brightness / 1000.0);
 }
 
 void TModeControl::onPrintFormat(uint32_t format)
@@ -274,7 +275,7 @@ void TModeControl::bufferTransmitted(int) {
 void TModeControl::onTimer(uint32_t timer)
 {
     if (timer == 1) {
-        Timers.addTimer(this, 1, 500);
+        Timers.addTimer(this, 1, 100);
         LightSelector.update(LastBrightness);
         Selected->setBrightness(LightSelector.stripBrightness());
         if (PrintFormat == 1) {

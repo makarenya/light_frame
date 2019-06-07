@@ -17,7 +17,7 @@ void TAdcControl::enable()
     dma_enable_transfer_complete_interrupt(AdcDma, AdcDmaChannel);
     dma_set_peripheral_address(AdcDma, AdcDmaChannel, reinterpret_cast<uint32_t>(&ADC_DR(Adc)));
 
-    adc_enable_scan_mode(Adc);
+    adc_disable_scan_mode(Adc);
     adc_set_single_conversion_mode(Adc);
     adc_set_sample_time_on_all_channels(Adc, ADC_SMPR_SMP_13DOT5CYC);
     adc_set_right_aligned(Adc);
@@ -43,12 +43,24 @@ void TAdcControl::enableFrame()
     nvic_enable_irq(NVIC_DMA1_CHANNEL1_IRQ);
     adc_enable_eoc_interrupt_injected(Adc);
 
-    uint8_t injected[] = { MagAdcChannel, LightAdcChannel };
-    adc_set_injected_sequence(Adc, sizeof(injected), injected);
+
     uint8_t regular[] = { MicAdcChannel };
     adc_set_regular_sequence(Adc, sizeof(regular), regular);
 
     adc_enable_external_trigger_regular(Adc, ADC_CR2_EXTSEL_TIM1_CC2);
+}
+
+void TAdcControl::measureLight()
+{
+    uint8_t injected[] = { LightAdcChannel };
+    adc_set_injected_sequence(Adc, sizeof(injected), injected);
+    adc_enable_external_trigger_injected(Adc, ADC_CR2_JEXTSEL_TIM3_CC4);
+}
+
+void TAdcControl::measureMagnet()
+{
+    uint8_t injected[] = { MagAdcChannel };
+    adc_set_injected_sequence(Adc, sizeof(injected), injected);
     adc_enable_external_trigger_injected(Adc, ADC_CR2_JEXTSEL_TIM2_TRGO);
 }
 

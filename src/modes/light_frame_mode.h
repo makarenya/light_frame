@@ -22,16 +22,17 @@ private:
     void changeDynamic();
     static const int BaseFrequency = 1000000;
     static const int MeasureTimeUs = 1200;
-    static constexpr int PulseTime[] = {0, 30, 200, 400, 680, 1040, 1640, 2560, 3840, 5000, 10000};
-    static constexpr int MeasureTime[] = {0, 70, 270, 430, 590, 740, 900, 1040, 1130, 1170, 1190};
-    static const int MeasureTarget = 600;
-    static const int TargetAmplitude = 500;
+    static const int MeasureTarget = 1786;
+    static constexpr int MeasureTime[] = { 0, 40, 186, 334, 462, 629, 763, 864, 966, 1077, 1137, 1188, 1189 };
+    static constexpr int PulseTime[] = { 0, 20, 160, 340, 540, 880, 1240, 1600, 2140, 2980, 3740, 4920, 5500 };
+    static const int TargetAmplitude = 686;
     static const int SoundLength = 512;
 
-    uint16_t Sound[SoundLength];
-    double Frequency{};
+    uint16_t Sound[SoundLength]{};
+    double Frequency{100};
     double CycleTime{};
-    double Power{};
-    double Brightness{};
-    bool DynamicChanged{};
+    double Power{1.0};
+    double Brightness{.2};
+    bool DynamicChanged{true};
+    bool MeasureLight{true};
 };
