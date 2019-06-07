@@ -5,7 +5,7 @@ void TStream::enable()
     beginReceive();
 }
 
-int TStream::available()
+size_t TStream::available()
 {
     if (!ReceiveStopped && Communication.received()) {
         Communication.stopReceive();
@@ -22,9 +22,9 @@ int TStream::read()
     return -1;
 }
 
-int TStream::asyncRead(uint8_t* buffer, int size)
+size_t TStream::asyncRead(uint8_t* buffer, size_t size)
 {
-    int cnt = 0;
+    size_t cnt = 0;
     available();
     while(ReceiveRead != ReceiveWrite && cnt < size) {
         (*buffer++) = ReceiveBuffer[ReceiveRead];
@@ -37,7 +37,7 @@ int TStream::asyncRead(uint8_t* buffer, int size)
     return cnt;
 }
 
-bool TStream::read(uint8_t* buffer, int size)
+size_t TStream::read(uint8_t* buffer, size_t size)
 {
     ReceiveTimeout.set(100);
     int ready = 0;
@@ -45,12 +45,12 @@ bool TStream::read(uint8_t* buffer, int size)
         ready += asyncRead(static_cast<uint8_t*>(buffer) + ready, size - ready);
     }
     ReceiveTimeout.unset();
-    return !ReceiveTimeout.expired();
+    return ready;
 }
 
-int TStream::asyncReadUntil(uint8_t character, uint8_t* buffer, int size)
+size_t TStream::asyncReadUntil(uint8_t character, uint8_t* buffer, size_t size)
 {
-    int cnt = 0;
+    size_t cnt = 0;
     available();
     int current = -1;
     while (ReceiveRead != ReceiveWrite && cnt < size && current != character) {
@@ -64,10 +64,10 @@ int TStream::asyncReadUntil(uint8_t character, uint8_t* buffer, int size)
     return cnt;
 }
 
-int TStream::readUntil(uint8_t character, uint8_t* buffer, int size)
+size_t TStream::readUntil(uint8_t character, uint8_t* buffer, size_t size)
 {
     ReceiveTimeout.set(100);
-    int ready = 0;
+    size_t ready = 0;
     while(ready < size || ReceiveTimeout.expired()) {
         ready += asyncReadUntil(character, static_cast<uint8_t*>(buffer) + ready, size - ready);
         if (buffer[ready - 1] == character) break;
@@ -76,14 +76,14 @@ int TStream::readUntil(uint8_t character, uint8_t* buffer, int size)
     return ready;
 }
 
-bool TStream::write(uint8_t byte)
+size_t TStream::write(uint8_t byte)
 {
-    return asyncWrite(&byte, 1) == 1;
+    return asyncWrite(&byte, 1);
 }
 
-int TStream::asyncWrite(uint8_t* buffer, int size)
+size_t TStream::asyncWrite(const uint8_t* buffer, size_t size)
 {
-    int cnt = 0;
+    size_t cnt = 0;
     while(TransmitWrite != (TransmitRead + sizeof(TransmitBuffer) - 1) % sizeof(TransmitBuffer) && cnt < size) {
         TransmitBuffer[TransmitWrite] = (*buffer++);
         TransmitWrite = (TransmitWrite + 1) % sizeof(TransmitBuffer);
@@ -95,17 +95,17 @@ int TStream::asyncWrite(uint8_t* buffer, int size)
     return cnt;
 }
 
-int TStream::write(uint8_t* buffer, int size)
+size_t TStream::write(const uint8_t* buffer, size_t size)
 {
     TransmitTimeout.set(100);
-    int ready = 0;
+    size_t ready = 0;
     while(ready < size || TransmitTimeout.expired()) {
-        ready += asyncWrite(static_cast<uint8_t*>(buffer) + ready, size - ready);
+        ready += asyncWrite(static_cast<const uint8_t*>(buffer) + ready, size - ready);
     }
     return ready;
 }
 
-void TStream::bufferTransmitted(int size)
+void TStream::bufferTransmitted(size_t size)
 {
     if (TransmitRead + size == sizeof(TransmitBuffer)) {
         TransmitRead = 0;
@@ -116,7 +116,7 @@ void TStream::bufferTransmitted(int size)
     beginTransmit();
 }
 
-void TStream::bufferReceived(int size)
+void TStream::bufferReceived(size_t size)
 {
     if (ReceiveWrite + size == sizeof(ReceiveBuffer)) {
         ReceiveWrite = 0;
@@ -130,11 +130,11 @@ void TStream::bufferReceived(int size)
 void TStream::beginTransmit()
 {
     if (TransmitRead < TransmitWrite) {
-        Communication.transmit(TransmitBuffer + TransmitRead, TransmitWrite - TransmitRead, this);
+        Communication.transmit(TransmitBuffer + TransmitRead, TransmitWrite - TransmitRead);
         TransmitStopped = false;
     } else if (TransmitRead > TransmitWrite) {
         TransmitStopped = false;
-        Communication.transmit(TransmitBuffer + TransmitRead, sizeof(TransmitBuffer) - TransmitRead, this);
+        Communication.transmit(TransmitBuffer + TransmitRead, sizeof(TransmitBuffer) - TransmitRead);
     } else {
         TransmitStopped = true;
     }
@@ -142,12 +142,12 @@ void TStream::beginTransmit()
 
 void TStream::beginReceive()
 {
-    if (ReceiveWrite < ReceiveRead - 1) {
+    if (ReceiveWrite + 1 < ReceiveRead) {
         ReceiveStopped = false;
-        Communication.receive(ReceiveBuffer + ReceiveWrite, ReceiveRead - ReceiveWrite - 1, this);
+        Communication.receive(ReceiveBuffer + ReceiveWrite, ReceiveRead - ReceiveWrite - 1);
     } else if (ReceiveWrite >= ReceiveRead) {
         ReceiveStopped = false;
-        Communication.receive(ReceiveBuffer + ReceiveWrite, sizeof(ReceiveBuffer) - ReceiveWrite, this);
+        Communication.receive(ReceiveBuffer + ReceiveWrite, sizeof(ReceiveBuffer) - ReceiveWrite - 1);
     } else {
         ReceiveStopped = true;
     }

@@ -81,40 +81,14 @@ bool checkUartTc(uint32_t uart)
     return false;
 }
 
-bool checkUartTxe(uint32_t uart)
-{
-    if (usart_get_flag(uart, USART_SR_TXE) && (USART_CR1(uart) & USART_CR1_TXEIE)) {
-        usart_disable_tx_interrupt(uart);
-        return true;
-    }
-    return false;
-}
-
-bool checkUartRxne(uint32_t uart)
-{
-    if (usart_get_flag(uart, USART_SR_RXNE) && (USART_CR1(uart) & USART_CR1_RXNEIE)) {
-        USART_SR(uart) = ~USART_SR_RXNE;
-        return true;
-    }
-    return false;
-}
-
 void usart2_isr()
 {
     if (checkUartTc(CommUart))
         mode_control().communication().onTransferComplete();
-    if (checkUartTxe(CommUart))
-        mode_control().communication().onTxEmpty();
-    if (checkUartRxne(CommUart))
-        mode_control().communication().onRxNotEmpty();
 }
 
 void usart3_isr()
 {
     if (checkUartTc(EspUart))
         mode_control().esp().onTransferComplete();
-    if (checkUartTxe(EspUart))
-        mode_control().esp().onTxEmpty();
-    if (checkUartRxne(EspUart))
-        mode_control().esp().onRxNotEmpty();
 }

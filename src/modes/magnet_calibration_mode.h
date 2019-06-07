@@ -1,13 +1,6 @@
 #pragma once
+#include <stream.h>
 #include "mode_control.h"
-
-enum class TCalibrationState {
-    NotStarted,
-    Started,
-    DataReady,
-    Calculated,
-    Transmitted
-};
 
 class TMagnetCalibrationMode : public IWorkMode {
 public:
@@ -16,7 +9,7 @@ public:
     int calculateBrightness() override { return -1; }
     void onDma() override;
     void onTimer() override;
-    int calculate(char* buffer, int len);
+    void calculate(TStream& stream);
     bool dataReady() { return PulseWidth == 0; };
 
 private:

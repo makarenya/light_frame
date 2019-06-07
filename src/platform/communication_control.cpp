@@ -18,8 +18,9 @@ TCommunicationControl::TCommunicationControl(bool esp, int baud)
     , TxDmaChannel(esp ? EspUartTxDmaChannel : CommUartTxDmaChannel)
 {}
 
-void TCommunicationControl::enable()
+void TCommunicationControl::init(ICommunicationClient* client)
 {
+    Client = client;
     rcc_periph_clock_enable(ClkEn);
     rcc_periph_reset_pulse(ClkRst);
     nvic_enable_irq(DmaRxIrq);
@@ -32,10 +33,9 @@ void TCommunicationControl::enable()
     enableUart();
 }
 
-bool TCommunicationControl::receive(void* buffer, uint16_t length, IReceiveBufferCallback* callback)
+bool TCommunicationControl::receive(void* buffer, uint16_t length)
 {
-    if (ReceiveBufferCallback || ReceiveByteCallback) return false;
-    ReceiveBufferCallback = callback;
+    if (ReceiveSize > 0) return false;
     ReceiveSize = length;
     dma_set_memory_address(UartDma, RxDmaChannel, reinterpret_cast<uint32_t>(buffer));
     dma_set_number_of_data(UartDma, RxDmaChannel, length);
@@ -44,38 +44,26 @@ bool TCommunicationControl::receive(void* buffer, uint16_t length, IReceiveBuffe
     return true;
 }
 
-bool TCommunicationControl::receive(IReceiveByteCallback* callback)
-{
-    if (ReceiveBufferCallback ||  ReceiveByteCallback) return false;
-    ReceiveByteCallback = callback;
-    if (usart_get_flag(Uart, USART_SR_RXNE)) {
-        onRxNotEmpty();
-    } else {
-        usart_enable_rx_interrupt(Uart);
-    }
-    return true;
-}
-
 bool TCommunicationControl::stopReceive()
 {
-    if (ReceiveBufferCallback == nullptr) return false;
+    if (ReceiveSize == 0) return false;
     usart_disable_rx_dma(Uart);
     dma_disable_channel(UartDma, RxDmaChannel);
-    fireBufferReceived(ReceiveSize - dma_get_number_of_data(UartDma, RxDmaChannel));
+    fireReceive(ReceiveSize - dma_get_number_of_data(UartDma, RxDmaChannel));
     return true;
 }
 
-int TCommunicationControl::received()
+size_t TCommunicationControl::received()
 {
-    if (ReceiveBufferCallback == nullptr) return 0;
-    return ReceiveSize - dma_get_number_of_data(UartDma, RxDmaChannel);
+    if (ReceiveSize == 0) return 0;
+    int num = dma_get_number_of_data(UartDma, RxDmaChannel);
+    return ReceiveSize - num;
 }
 
-bool TCommunicationControl::transmit(const void* buffer, uint16_t length, ITransmitBufferCallback* callback)
+bool TCommunicationControl::transmit(const void* buffer, uint16_t length)
 {
-    if (TransmitBufferCallback || TransmitByteCallback) return false;
+    if (TransmitSize > 0) return false;
     TransmitSize = length;
-    TransmitBufferCallback = callback;
     dma_set_memory_address(UartDma, TxDmaChannel, reinterpret_cast<uint32_t>(buffer));
     dma_set_number_of_data(UartDma, TxDmaChannel, length);
     dma_enable_channel(UartDma, TxDmaChannel);
@@ -84,20 +72,12 @@ bool TCommunicationControl::transmit(const void* buffer, uint16_t length, ITrans
     return true;
 }
 
-bool TCommunicationControl::transmit(uint8_t byte, ITransmitByteCallback* callback)
-{
-    if (TransmitBufferCallback || TransmitByteCallback) return false;
-    TransmitByteCallback = callback;
-    USART_CR1(Uart) |= USART_CR1_TCIE;
-    usart_send(Uart, byte);
-    usart_enable_tx_interrupt(Uart);
-    return true;
-}
-
 void TCommunicationControl::onRxDma()
 {
     usart_disable_rx_dma(Uart);
-    fireBufferReceived(ReceiveSize);
+    auto size = ReceiveSize;
+    ReceiveSize = 0;
+    Client->bufferReceived(size);
 }
 
 void TCommunicationControl::onTxDma()
@@ -108,17 +88,7 @@ void TCommunicationControl::onTxDma()
 
 void TCommunicationControl::onTransferComplete()
 {
-    fireBufferTransmitted(TransmitSize);
-}
-
-void TCommunicationControl::onTxEmpty()
-{
-    fireByteTransmitted();
-}
-
-void TCommunicationControl::onRxNotEmpty()
-{
-    fireByteReceived(usart_recv(Uart));
+    fireTransmit(TransmitSize);
 }
 
 void TCommunicationControl::enableGpio()
@@ -153,36 +123,14 @@ void TCommunicationControl::enableUart()
     usart_enable(Uart);
 }
 
-void TCommunicationControl::fireBufferReceived(int size)
+void TCommunicationControl::fireTransmit(size_t size)
 {
-    if (ReceiveBufferCallback) {
-        IReceiveBufferCallback* callback = ReceiveBufferCallback;
-        ReceiveBufferCallback= nullptr;
-        callback->bufferReceived(size);
-    }
+    TransmitSize = 0;
+    Client->bufferTransmitted(size);
 }
 
-void TCommunicationControl::fireByteReceived(uint8_t byte)
+void TCommunicationControl::fireReceive(size_t size)
 {
-    if (ReceiveByteCallback) {
-        IReceiveByteCallback* callback = ReceiveByteCallback;
-        ReceiveByteCallback= nullptr;
-        callback->byteReceived(byte);
-    }
-}
-
-void TCommunicationControl::fireBufferTransmitted(int size) {
-    if (TransmitBufferCallback) {
-        ITransmitBufferCallback* callback = TransmitBufferCallback;
-        TransmitBufferCallback= nullptr;
-        callback->bufferTransmitted(size);
-    }
-}
-
-void TCommunicationControl::fireByteTransmitted() {
-    if (TransmitByteCallback) {
-        ITransmitByteCallback* callback = TransmitByteCallback;
-        TransmitByteCallback = nullptr;
-        callback->byteTransmitted();
-    }
+    ReceiveSize = 0;
+    Client->bufferReceived(size);
 }

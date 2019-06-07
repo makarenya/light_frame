@@ -35,7 +35,6 @@ public:
 
     virtual TCommunicationControl& communication() = 0;
     virtual TCommunicationControl& esp() = 0;
-    virtual TTimerService& timers() = 0;
 };
 
 IModeControl& mode_control();

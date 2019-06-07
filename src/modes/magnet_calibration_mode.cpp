@@ -4,7 +4,7 @@
 #include <platform/adc_control.h>
 #include <platform/platform_control.h>
 #include "magnet_calibration_mode.h"
-#include "string_builder.h"
+#include "print.h"
 
 void TMagnetCalibrationMode::switchOn()
 {
@@ -77,7 +77,7 @@ inline int round(double num)
     return (static_cast<int>(num*2)+1)/2;
 }
 
-int TMagnetCalibrationMode::calculate(char* buffer, int len)
+void TMagnetCalibrationMode::calculate(TStream& stream)
 {
     // suppress hard fails
     double tmp[Pulses];
@@ -130,22 +130,20 @@ int TMagnetCalibrationMode::calculate(char* buffer, int len)
     times[found] = Pulses * 20;
     found++;
 
-    TStringBuilder builder(buffer, len);
-    builder.print(targetStr);
-    builder.print(TargetValue);
-    builder.print(endTarget);
-    builder.print(waitStr);
+    stream.print(targetStr);
+    stream.print(TargetValue);
+    stream.print(endTarget);
+    stream.print(waitStr);
     for (int i = 0; i < found; ++i) {
-        if (i != 0) builder.print(sepStr);
-        builder.print(values[i]);
+        if (i != 0) stream.print(sepStr);
+        stream.print(values[i]);
     }
-    builder.print(endStr);
-    builder.print(timesStr);
+    stream.print(endStr);
+    stream.print(timesStr);
     for (int i = 0; i < found; ++i) {
-        if (i != 0) builder.print(sepStr);
-        builder.print(times[i]);
+        if (i != 0) stream.print(sepStr);
+        stream.print(times[i]);
     }
-    builder.print(endStr);
-    return builder.length();
+    stream.print(endStr);
 }
 

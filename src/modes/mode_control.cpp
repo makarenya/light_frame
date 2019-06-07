@@ -4,8 +4,9 @@
 #include <cstdio>
 #include <timer_service.h>
 #include <commands_receiver.h>
-#include <string_builder.h>
+#include <print.h>
 #include <light_selector.h>
+#include <stream.h>
 #include "mode_control.h"
 #include "platform/buttons_control.h"
 #include "platform/led_control.h"
@@ -25,7 +26,7 @@ enum class TPressedButton {
     Left
 };
 
-class TModeControl : public IModeControl, public ITransmitBufferCallback, public ICommandsCallback {
+class TModeControl : public IModeControl {
 public:
     void init(TMode mode) override;
     void switchMode(TMode mode) override;
@@ -35,45 +36,40 @@ public:
     void tick() override;
     void poll() override;
 
-    void onModeSelect(uint32_t mode) override;
-    void onButtonsLight(uint32_t brightness) override;
-    void onLedStripLight(uint32_t brightness) override;
-    void onPrintFormat(uint32_t format) override;
-    void bufferTransmitted(int size) override;
-
-    TCommunicationControl& communication() override { return Communication; }
+    TCommunicationControl& communication() override { return Comm; }
     TCommunicationControl& esp() override { return Esp; }
-    TTimerService& timers() override { return Timers; }
 
 private:
+    void pollButtonStates();
+    void updateButtonsBrightness();
+    void receiveCommands();
+    void measureAmbientLight();
+
+    TCommunicationControl Comm{false, 115200};
+    TCommunicationControl Esp{true, 115200};
+    TStream Stream{Comm, Timers};
+    TPressedButton PressedButton{TPressedButton::None};
+
     IWorkMode* Selected{nullptr};
     TMode CurrentMode{TMode::Sleep};
     TMode ReadyMode{TMode::Static};
 
-    TCommunicationControl Communication{false, 115200};
-    TCommunicationControl Esp{true, 115200};
-    TPressedButton PressedButton{TPressedButton::None};
+    TTimerService Timers{};
+    TTimeout UpdateBrightnessTimeout{Timers, 100};
+    TLightSelector LightSelector{};
+    TCommandsReceiver Receiver{};
+
     TSimpleFrameMode StaticMode{};
     TLightFrameMode SlowMode{2.5};
     TLightFrameMode FastMode{0.9};
     TMagnetCalibrationMode CalibrationMode;
-    TCommandsReceiver Receiver{Communication};
     TSleepMode SleepMode{};
-    TTimerService Timers{};
-    char StringBuffer[512]{};
-    TCalibrationState CalibrationState{TCalibrationState::NotStarted};
+
+    bool CalculationProcess{false};
     int LastBrightness{0};
-    TLightSelector LightSelector{};
     int PrintFormat{0};
-    TTimeout UpdateBrightnessTimeout{Timers, 100};
 };
 
-
-const char SleepModeOn[] = "sleep mode enabled\n";
-const char StaticModeOn[] = "static mode enabled\n";
-const char SlowModeOn[] = "slow mode enabled\n";
-const char FastModeOn[] = "fast mode enabled\n";
-const char CalibrationModeOn[] = "calibration mode enabled\n";
 
 static TModeControl instance{};
 IModeControl& mode_control()
@@ -87,8 +83,8 @@ void TModeControl::init(TMode mode)
     ReadyMode = TMode::Static;
     TPlatformControl::enable();
     TButtonsControl::enable();
-    Communication.enable();
-    Receiver.init(this);
+    Comm.init(&Stream);
+    Stream.enable();
     switchMode(mode);
 }
 
@@ -109,7 +105,7 @@ void TModeControl::switchMode(TMode mode)
     case TMode::Fast:Selected = &FastMode;
         break;
     case TMode::MagnetCalibration:Selected = &CalibrationMode;
-        CalibrationState = TCalibrationState::Started;
+        CalculationProcess = true;
         break;
     case TMode::Sleep:Selected = &SleepMode;
         break;
@@ -119,15 +115,15 @@ void TModeControl::switchMode(TMode mode)
     cm_enable_interrupts();
 
     switch (mode) {
-    case TMode::Static:Communication.transmit(StaticModeOn, sizeof(StaticModeOn)-1, this);
+    case TMode::Static:Stream.println("static mode enabled");
         break;
-    case TMode::Slow:Communication.transmit(SlowModeOn, sizeof(SlowModeOn)-1, this);
+    case TMode::Slow:Stream.println("slow mode enabled");
         break;
-    case TMode::Fast:Communication.transmit(FastModeOn, sizeof(FastModeOn)-1, this);
+    case TMode::Fast:Stream.println("fast mode enabled");
         break;
-    case TMode::MagnetCalibration:Communication.transmit(CalibrationModeOn, sizeof(CalibrationModeOn)-1, this);
+    case TMode::MagnetCalibration:Stream.println("calibration mode enabled");
         break;
-    case TMode::Sleep:Communication.transmit(SleepModeOn, sizeof(SleepModeOn)-1, this);
+    case TMode::Sleep:Stream.println("sleep mode enabled");
         break;
     }
 }
@@ -145,8 +141,6 @@ void TModeControl::onAdc()
     }
 }
 
-char crlf[] = "\n";
-
 void TModeControl::onTimer()
 {
     Selected->onTimer();
@@ -158,6 +152,14 @@ void TModeControl::tick()
 }
 
 void TModeControl::poll()
+{
+    pollButtonStates();
+    updateButtonsBrightness();
+    receiveCommands();
+    measureAmbientLight();
+}
+
+void TModeControl::pollButtonStates()
 {
     if (TButtonsControl::pwr_pressed()) {
         PressedButton = TPressedButton::Pwr;
@@ -188,15 +190,15 @@ void TModeControl::poll()
         }
     }
 
-    if (CalibrationState==TCalibrationState::Started && CalibrationMode.dataReady()) {
-        int length = CalibrationMode.calculate(StringBuffer, sizeof(StringBuffer));
-        communication().transmit(StringBuffer, length, this);
-        CalibrationState = TCalibrationState::DataReady;
-    } else if (CalibrationState==TCalibrationState::Transmitted) {
-        CalibrationState = TCalibrationState::NotStarted;
+    if (CalculationProcess && CalibrationMode.dataReady()) {
+        CalibrationMode.calculate(Stream);
+        CalculationProcess = false;
         switchMode(TMode::Sleep);
     }
+}
 
+void TModeControl::updateButtonsBrightness()
+{
     double pwrLight = 0;
     double rightLight = 0;
     double leftLight = 0;
@@ -234,53 +236,46 @@ void TModeControl::poll()
     TButtonsControl::setPowerLed(pwrLight);
     TButtonsControl::setRightLed(rightLight);
     TButtonsControl::setLeftLed(leftLight);
+}
 
+void TModeControl::receiveCommands()
+{
+    switch(Receiver.update(Stream)) {
+    case TCommandMode::ModeSelect:
+        if (Receiver.value()==0) {
+            switchMode(TMode::Sleep);
+        } else if (Receiver.value()==1) {
+            switchMode(TMode::Static);
+        } else if (Receiver.value()==2) {
+            switchMode(TMode::Slow);
+        } else if (Receiver.value()==3) {
+            switchMode(TMode::Fast);
+        } else if (Receiver.value()==4) {
+            switchMode(TMode::MagnetCalibration);
+        }
+        break;
+    case TCommandMode::ButtonsLight:
+        LightSelector.overrideButtons(Receiver.value());
+        break;
+    case TCommandMode::LedStripLight:
+        LightSelector.overrideStrip(Receiver.value() / 1000.0);
+        break;
+    case TCommandMode::PrintFormat:
+        PrintFormat = Receiver.value();
+        break;
+    case TCommandMode::Initial:
+        break;
+    }
+}
+
+void TModeControl::measureAmbientLight()
+{
     if (UpdateBrightnessTimeout.expired()) {
         UpdateBrightnessTimeout.set(100);
-
         LightSelector.update(LastBrightness);
         Selected->setBrightness(LightSelector.stripBrightness());
         if (PrintFormat == 1) {
-            TStringBuilder builder(StringBuffer, sizeof(StringBuffer));
-            builder.print(LastBrightness);
-            builder.print(crlf);
-            communication().transmit(StringBuffer, builder.length(), this);
+            Stream.println(LastBrightness);
         }
-    }
-}
-
-void TModeControl::onModeSelect(uint32_t mode)
-{
-    if (mode == 0) {
-        switchMode(TMode::Sleep);
-    } else if (mode == 1) {
-        switchMode(TMode::Static);
-    } else if (mode == 2) {
-        switchMode(TMode::Slow);
-    } else if (mode == 3) {
-        switchMode(TMode::Fast);
-    } else if (mode == 4) {
-        switchMode(TMode::MagnetCalibration);
-    }
-}
-
-void TModeControl::onButtonsLight(uint32_t brightness)
-{
-    LightSelector.overrideButtons(brightness);
-}
-
-void TModeControl::onLedStripLight(uint32_t brightness)
-{
-    LightSelector.overrideStrip(brightness / 1000.0);
-}
-
-void TModeControl::onPrintFormat(uint32_t format)
-{
-    PrintFormat = format;
-}
-
-void TModeControl::bufferTransmitted(int) {
-    if (CalibrationState == TCalibrationState::DataReady) {
-        CalibrationState = TCalibrationState::Transmitted;
     }
 }
